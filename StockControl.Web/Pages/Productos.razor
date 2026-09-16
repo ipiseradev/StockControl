@@ -35,18 +35,17 @@ else
         <tbody>
             @foreach (var p in productos)
             {
-                <tr class="@(p.StockActual <= p.StockMinimo ? "fila-alerta" : "")">
-                    <td>@p.Nombre</td>
-                    <td class="mono">@p.Sku</td>
-                    <td class="mono">$@p.PrecioVenta</td>
-                    <td class="mono">@p.StockMinimo</td>
-                    <td class="mono">@p.StockActual</td>
-                    <td>
-                        <button class="btn-link" @onclick="() => AbrirEditar(p)">Editar</button>
-                        <button class="btn-link-danger"style="padding: 8px 8px; border-radius: 8px; background-color: #dc3545; color: white; border: none; text-decoration: none;"
-                                @onclick="() => PedirConfirmacion(p)">
-                            Eliminar
-                        </button>
+                <tr class="@ClaseFila(p)">
+                    <td data-label="Nombre">@p.Nombre</td>
+                    <td class="mono" data-label="SKU">@p.Sku</td>
+                    <td class="mono" data-label="Precio">$@p.PrecioVenta</td>
+                    <td class="mono" data-label="Stock mínimo">@p.StockMinimo</td>
+                    <td class="mono" data-label="Stock actual">@p.StockActual</td>
+                    <td class="celda-acciones">
+                        <div class="row-actions">
+                            <button class="btn-link" @onclick="() => AbrirEditar(p)">Editar</button>
+                            <button class="btn-link-danger" @onclick="() => PedirConfirmacion(p)">Eliminar</button>
+                        </div>
                     </td>
                 </tr>
             }
@@ -130,6 +129,9 @@ else
     private Producto? eliminando;
     private string? errorEliminar;
 
+    private Guid? productoDestacadoId;
+    private System.Threading.Timer? pulsoTimer;
+
     protected override async Task OnInitializedAsync()
     {
         await Cargar();
@@ -143,6 +145,14 @@ else
         cargando = false;
     }
 
+    private string ClaseFila(Producto p)
+    {
+        var clases = new List<string>();
+        if (p.StockActual <= p.StockMinimo) clases.Add("fila-alerta");
+        if (p.Id == productoDestacadoId) clases.Add("pulso");
+        return string.Join(" ", clases);
+    }
+
     private void OnStockActualizado(StockUpdate update)
     {
         var producto = productos.FirstOrDefault(p => p.Id == update.ProductoId);
@@ -150,6 +160,15 @@ else
 
         var indice = productos.IndexOf(producto);
         productos[indice] = producto with { StockActual = update.StockActual };
+
+        productoDestacadoId = update.ProductoId;
+        pulsoTimer?.Dispose();
+        pulsoTimer = new System.Threading.Timer(_ =>
+        {
+            productoDestacadoId = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 1800, System.Threading.Timeout.Infinite);
+
         InvokeAsync(StateHasChanged);
     }
 
@@ -224,5 +243,6 @@ else
     public void Dispose()
     {
         Realtime.StockActualizado -= OnStockActualizado;
+        pulsoTimer?.Dispose();
     }
 }
