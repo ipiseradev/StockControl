@@ -6,10 +6,10 @@
 @inject MovimientoService MovimientoService
 @inject RealtimeService Realtime
 
-<PageTitle>StockControl</PageTitle>
+<PageTitle>Stock Control</PageTitle>
 
 <div class="page-header">
-    <h1>Hola, @AuthService.UsuarioActual?.NombreUsuario</h1>
+    <h1>Bienvenido @AuthService.UsuarioActual?.NombreUsuario</h1>
 </div>
 
 @if (cargando)
@@ -21,17 +21,51 @@ else
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-value">@totalProductos</div>
-            <div class="stat-label" style="color:black">Productos cargados</div>
+            <div class="stat-label">Productos cargados</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card @(pulsoAlertas ? "pulso" : "")">
             <div class="stat-value @(alertas.Count > 0 ? "alerta" : "")">@alertas.Count</div>
-            <div class="stat-label" style="color:red">Alertas de stock bajo</div>
+            <div class="stat-label">Alertas de stock bajo</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value">@ultimosMovimientos.Count</div>
-            <div class="stat-label" style="color:black" >Movimientos recientes</div>
+        <div class="stat-card @(pulsoMovimientos ? "pulso" : "")">
+            <div class="stat-value">@todosMovimientos.Count</div>
+            <div class="stat-label">Movimientos totales</div>
         </div>
-        
+    </div>
+
+    <div class="dashboard-section">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h2>Movimientos de los últimos 7 días</h2>
+                <span class="chart-total">@datosGrafico.Sum(d => d.Total) en total</span>
+            </div>
+            <div class="chart-bars @(graficoListo ? "chart-ready" : "")">
+                @foreach (var d in datosGrafico)
+                {
+                    <div class="chart-col @(d.EsHoy ? "hoy" : "")">
+                        <span class="chart-col-value">@d.Total</span>
+                        <div class="chart-bar-track">
+                            <div class="chart-bar-stack" style="--h: @(Porcentaje(d.Total))%">
+                                @foreach (var s in d.Segmentos.Where(s => s.Cantidad > 0))
+                                {
+                                    <div class="chart-segmento @ClaseTipo(s.Tipo)" style="flex-grow: @s.Cantidad" title="@EtiquetaTipo(s.Tipo): @s.Cantidad"></div>
+                                }
+                            </div>
+                        </div>
+                        <span class="chart-col-label">@d.Label</span>
+                    </div>
+                }
+            </div>
+            <div class="chart-legend">
+                @foreach (var t in TiposGrafico)
+                {
+                    <div class="chart-legend-item">
+                        <span class="chart-legend-dot @ClaseTipo(t)"></span>
+                        @EtiquetaTipo(t)
+                    </div>
+                }
+            </div>
+        </div>
     </div>
 
     @if (alertas.Count > 0)
@@ -50,9 +84,9 @@ else
                     @foreach (var p in alertas)
                     {
                         <tr class="fila-alerta">
-                            <td>@p.Nombre</td>
-                            <td class="mono">@p.StockActual</td>
-                            <td class="mono">@p.StockMinimo</td>
+                            <td data-label="Nombre">@p.Nombre</td>
+                            <td class="mono" data-label="Stock actual">@p.StockActual</td>
+                            <td class="mono" data-label="Stock mínimo">@p.StockMinimo</td>
                         </tr>
                     }
                 </tbody>
@@ -70,7 +104,7 @@ else
         {
             @foreach (var m in ultimosMovimientos)
             {
-                <div class="actividad-item">
+                <div class="actividad-item @(m.Id == movimientoDestacadoId ? "pulso" : "")">
                     <span>@m.Tipo <strong>@m.ProductoNombre</strong> · @m.Cantidad un. · @m.DepositoNombre</span>
                     <span class="actividad-fecha">@m.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</span>
                 </div>
@@ -80,31 +114,116 @@ else
 }
 
 @code {
+    private static readonly string[] DiasAbrev = { "Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb" };
+    private static readonly TipoMovimiento[] TiposGrafico = { TipoMovimiento.Entrada, TipoMovimiento.Ajuste, TipoMovimiento.Salida, TipoMovimiento.Merma };
+
+    private record SegmentoGrafico(TipoMovimiento Tipo, int Cantidad);
+    private record ColumnaGrafico(string Label, bool EsHoy, int Total, List<SegmentoGrafico> Segmentos);
+
     private bool cargando = true;
+    private bool graficoListo;
     private int totalProductos;
     private List<Producto> alertas = new();
+    private List<Movimiento> todosMovimientos = new();
     private List<Movimiento> ultimosMovimientos = new();
+    private List<ColumnaGrafico> datosGrafico = new();
+
+    private bool pulsoAlertas;
+    private bool pulsoMovimientos;
+    private Guid? movimientoDestacadoId;
+    private System.Threading.Timer? pulsoTimer;
 
     protected override async Task OnInitializedAsync()
     {
         var productos = await ProductoService.ObtenerTodos();
         totalProductos = productos.Count;
         alertas = await ProductoService.ObtenerAlertas();
-        ultimosMovimientos = (await MovimientoService.ObtenerTodos()).Take(8).ToList();
+        todosMovimientos = await MovimientoService.ObtenerTodos();
+        ActualizarDerivados();
         cargando = false;
 
         Realtime.StockActualizado += OnStockActualizado;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(80);
+            graficoListo = true;
+            StateHasChanged();
+        }
+    }
+
+    private void ActualizarDerivados()
+    {
+        ultimosMovimientos = todosMovimientos.Take(8).ToList();
+
+        var hoy = DateTime.Today;
+        datosGrafico = Enumerable.Range(0, 7)
+            .Select(i =>
+            {
+                var dia = hoy.AddDays(-6 + i);
+                var delDia = todosMovimientos.Where(m => m.Fecha.ToLocalTime().Date == dia).ToList();
+                var segmentos = TiposGrafico
+                    .Select(t => new SegmentoGrafico(t, delDia.Count(m => m.Tipo == t)))
+                    .ToList();
+                var etiqueta = dia == hoy ? "Hoy" : DiasAbrev[(int)dia.DayOfWeek];
+                return new ColumnaGrafico(etiqueta, dia == hoy, delDia.Count, segmentos);
+            })
+            .ToList();
+    }
+
+    private int Porcentaje(int total)
+    {
+        var max = datosGrafico.Count == 0 ? 0 : datosGrafico.Max(d => d.Total);
+        if (max <= 0) return 3;
+        return total == 0 ? 3 : Math.Max(6, (int)Math.Round(total * 100.0 / max));
+    }
+
+    private static string ClaseTipo(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada => "tipo-entrada",
+        TipoMovimiento.Salida => "tipo-salida",
+        TipoMovimiento.Ajuste => "tipo-ajuste",
+        TipoMovimiento.Merma => "tipo-merma",
+        _ => ""
+    };
+
+    private static string EtiquetaTipo(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada => "Entradas",
+        TipoMovimiento.Salida => "Salidas",
+        TipoMovimiento.Ajuste => "Ajustes",
+        TipoMovimiento.Merma => "Mermas",
+        _ => t.ToString()
+    };
+
     private async void OnStockActualizado(StockUpdate update)
     {
         alertas = await ProductoService.ObtenerAlertas();
-        ultimosMovimientos = (await MovimientoService.ObtenerTodos()).Take(8).ToList();
+        todosMovimientos = await MovimientoService.ObtenerTodos();
+        ActualizarDerivados();
+
+        pulsoAlertas = true;
+        pulsoMovimientos = true;
+        movimientoDestacadoId = todosMovimientos.FirstOrDefault()?.Id;
+
+        pulsoTimer?.Dispose();
+        pulsoTimer = new System.Threading.Timer(_ =>
+        {
+            pulsoAlertas = false;
+            pulsoMovimientos = false;
+            movimientoDestacadoId = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 1800, System.Threading.Timeout.Infinite);
+
         await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
         Realtime.StockActualizado -= OnStockActualizado;
+        pulsoTimer?.Dispose();
     }
 }
