@@ -1,18 +1,26 @@
-@page "/login"
+@page "/register"
 @layout BlankLayout
 @using StockControl.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
 @inject AuthService AuthService
 @inject NavigationManager Nav
 
-<PageTitle>Ingresar - StockControl</PageTitle>
+<PageTitle>Crear cuenta - StockControl</PageTitle>
 
 <div class="login-wrap">
     <div class="login-card">
         <h1>StockControl</h1>
-        <p class="subtitle">Control de stock en tiempo real</p>
+        <p class="subtitle">Creá tu cuenta y empezá a controlar tu stock</p>
 
-        <EditForm Model="modelo" OnValidSubmit="HandleLogin">
+        <EditForm Model="modelo" OnValidSubmit="HandleRegister">
+            <div class="field">
+                <label>Nombre del comercio</label>
+                <InputText @bind-Value="modelo.NombreComercio" />
+            </div>
+            <div class="field">
+                <label>Tu nombre</label>
+                <InputText @bind-Value="modelo.NombreUsuario" />
+            </div>
             <div class="field">
                 <label>Email</label>
                 <InputText @bind-Value="modelo.Email" />
@@ -28,33 +36,33 @@
             }
 
             <button type="submit" disabled="@cargando">
-                @(cargando ? "Ingresando..." : "Ingresar")
+                @(cargando ? "Creando cuenta..." : "Crear cuenta")
             </button>
 
             <div class="register-link">
-                <p>¿No tenés cuenta? <a href="/register">Creá tu cuenta</a></p>
+                <p>¿Ya tenés cuenta? <a href="/login">Ingresá</a></p>
             </div>
         </EditForm>
     </div>
 </div>
 
 @code {
-    private LoginModel modelo = new();
+    private RegisterModel modelo = new();
     private string? error;
     private bool cargando;
 
-    private async Task HandleLogin()
+    private async Task HandleRegister()
     {
         cargando = true;
         error = null;
 
         try
         {
-            var ok = await AuthService.Login(modelo.Email, modelo.Password);
-            if (ok)
+            var (exito, mensaje) = await AuthService.Register(modelo.NombreComercio, modelo.NombreUsuario, modelo.Email, modelo.Password);
+            if (exito)
                 Nav.NavigateTo("/");
             else
-                error = "Email o contraseña incorrectos.";
+                error = mensaje ?? "No se pudo crear la cuenta.";
         }
         catch (Exception ex)
         {
@@ -66,8 +74,10 @@
         }
     }
 
-    public class LoginModel
+    public class RegisterModel
     {
+        public string NombreComercio { get; set; } = string.Empty;
+        public string NombreUsuario { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }

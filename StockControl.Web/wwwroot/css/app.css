@@ -287,6 +287,27 @@ button[type="submit"]:disabled {
     margin-bottom: 1rem;
 }
 
+.register-link {
+    text-align: center;
+    margin-top: 1.25rem;
+}
+
+.register-link p {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+.register-link a {
+    color: var(--color-ink);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.register-link a:hover {
+    text-decoration: underline;
+}
+
 /* ============================================================
    APP SHELL / SIDEBAR
    ============================================================ */

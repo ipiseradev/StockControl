@@ -11,6 +11,7 @@ public enum RolUsuario
 }
 
 public record LoginRequest(string Email, string Password);
+public record RegistroRequest(string NombreComercio, string NombreUsuario, string Email, string Password);
 public record AuthResponse(string Token, string NombreUsuario, string NombreComercio, Guid TenantId, RolUsuario Rol);
 
 public class AuthService
@@ -36,13 +37,33 @@ public class AuthService
         var auth = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions.Default);
         if (auth is null) return false;
 
+        await GuardarSesion(auth);
+        return true;
+    }
+
+    public async Task<(bool exito, string? mensaje)> Register(string nombreComercio, string nombreUsuario, string email, string password)
+    {
+        var response = await _http.PostAsJsonAsync("auth/registro", new RegistroRequest(nombreComercio, nombreUsuario, email, password));
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+            return (false, body?.GetValueOrDefault("mensaje") ?? "No se pudo crear la cuenta.");
+        }
+
+        var auth = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions.Default);
+        if (auth is null) return (false, "Respuesta inválida del servidor.");
+
+        await GuardarSesion(auth);
+        return (true, null);
+    }
+
+    private async Task GuardarSesion(AuthResponse auth)
+    {
         UsuarioActual = auth;
         await _js.InvokeVoidAsync("localStorage.setItem", "authToken", auth.Token);
         await _js.InvokeVoidAsync("localStorage.setItem", "authData", System.Text.Json.JsonSerializer.Serialize(auth, JsonOptions.Default));
 
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
-
-        return true;
     }
 
     public async Task<bool> CargarSesionGuardada()
