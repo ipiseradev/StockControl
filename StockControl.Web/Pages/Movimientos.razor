@@ -38,12 +38,12 @@ else
             @foreach (var m in movimientos)
             {
                 <tr>
-                    <td class="mono">@m.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                    <td>@m.ProductoNombre</td>
-                    <td>@m.DepositoNombre</td>
-                    <td>@m.Tipo</td>
-                    <td class="mono">@m.Cantidad</td>
-                    <td>@m.Nota</td>
+                    <td class="mono" data-label="Fecha">@m.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td data-label="Producto">@m.ProductoNombre</td>
+                    <td data-label="Depósito">@m.DepositoNombre</td>
+                    <td data-label="Tipo">@m.Tipo</td>
+                    <td class="mono" data-label="Cantidad">@m.Cantidad</td>
+                    <td data-label="Nota">@m.Nota</td>
                 </tr>
             }
         </tbody>

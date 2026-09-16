@@ -33,10 +33,10 @@ else
             @foreach (var p in alertas)
             {
                 <tr class="fila-alerta">
-                    <td>@p.Nombre</td>
-                    <td class="mono">@p.Sku</td>
-                    <td class="mono">@p.StockActual</td>
-                    <td class="mono">@p.StockMinimo</td>
+                    <td data-label="Nombre">@p.Nombre</td>
+                    <td class="mono" data-label="SKU">@p.Sku</td>
+                    <td class="mono" data-label="Stock actual">@p.StockActual</td>
+                    <td class="mono" data-label="Stock mínimo">@p.StockMinimo</td>
                 </tr>
             }
         </tbody>

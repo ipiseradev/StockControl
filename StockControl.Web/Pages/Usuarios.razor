@@ -32,10 +32,10 @@ else
             @foreach (var u in usuarios)
             {
                 <tr>
-                    <td>@u.Nombre</td>
-                    <td class="mono">@u.Email</td>
-                    <td><span class="rol-tag">@u.Rol</span></td>
-                    <td class="mono">@u.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                    <td data-label="Nombre">@u.Nombre</td>
+                    <td class="mono" data-label="Email">@u.Email</td>
+                    <td data-label="Rol"><span class="rol-tag">@u.Rol</span></td>
+                    <td class="mono" data-label="Desde">@u.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</td>
                 </tr>
             }
         </tbody>

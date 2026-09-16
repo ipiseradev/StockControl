@@ -31,9 +31,9 @@ else
             @foreach (var d in depositos)
             {
                 <tr>
-                    <td>@d.Nombre</td>
-                    <td class="mono">@(d.EsMostrador ? "Sí" : "No")</td>
-                    <td><button class="btn-link" @onclick="() => AbrirEditar(d)">Editar</button></td>
+                    <td data-label="Nombre">@d.Nombre</td>
+                    <td class="mono" data-label="Es mostrador">@(d.EsMostrador ? "Sí" : "No")</td>
+                    <td class="celda-acciones"><button class="btn-link" @onclick="() => AbrirEditar(d)">Editar</button></td>
                 </tr>
             }
         </tbody>
