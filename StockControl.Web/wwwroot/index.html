@@ -1,13 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StockControl</title>
+    <title>StockControl · Control de stock en tiempo real</title>
+    <meta name="description" content="Control de stock e inventario en tiempo real para comercios: productos, depósitos, movimientos y alertas de stock mínimo, sincronizados al instante." />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="StockControl · Control de stock en tiempo real" />
+    <meta property="og:description" content="Control de stock e inventario en tiempo real para comercios, con alertas de stock mínimo y sincronización instantánea entre dispositivos." />
+    <meta property="og:image" content="icon-192.png" />
+
+    <script>
+        (function () {
+            var temaGuardado = localStorage.getItem('theme');
+            var preferido = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', temaGuardado || preferido);
+        })();
+    </script>
+
     <base href="/" />
     <link rel="preload" id="webassembly" />
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="StockControl.Web.styles.css" rel="stylesheet" />
@@ -28,6 +42,7 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+    <script src="js/theme.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 

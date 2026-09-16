@@ -17,7 +17,7 @@ else
 {
     <div class="cuenta-card">
         <span class="badge @ClaseBadge(estado?.EstadoSuscripcion)">@estado?.EstadoSuscripcion</span>
-        <h2 style="font-family: 'IBM Plex Mono', monospace; font-size: 1.1rem; margin-top: 0;">@AuthService.UsuarioActual?.NombreComercio</h2>
+        <h2 class="cuenta-comercio">@AuthService.UsuarioActual?.NombreComercio</h2>
 
         @if (estado?.FechaProximoPago is not null)
         {
