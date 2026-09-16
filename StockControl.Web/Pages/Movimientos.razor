@@ -1,0 +1,196 @@
+@page "/movimientos"
+@using StockControl.Web.Services
+@implements IDisposable
+@inject MovimientoService MovimientoService
+@inject ProductoService ProductoService
+@inject DepositoService DepositoService
+@inject RealtimeService Realtime
+
+<PageTitle>Movimientos - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Movimientos</h1>
+    <button class="btn-primary" @onclick="AbrirNuevo">+ Nuevo movimiento</button>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (movimientos.Count == 0)
+{
+    <p class="empty-state">Todavía no registraste ningún movimiento.</p>
+}
+else
+{
+    <table class="tabla-datos">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Depósito</th>
+                <th>Tipo</th>
+                <th>Cantidad</th>
+                <th>Nota</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in movimientos)
+            {
+                <tr>
+                    <td class="mono">@m.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@m.ProductoNombre</td>
+                    <td>@m.DepositoNombre</td>
+                    <td>@m.Tipo</td>
+                    <td class="mono">@m.Cantidad</td>
+                    <td>@m.Nota</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Nuevo movimiento</h2>
+
+            <div class="field">
+                <label>Producto</label>
+                <select @bind="formProductoId">
+                    <option value="">Seleccioná un producto</option>
+                    @foreach (var p in productos)
+                    {
+                        <option value="@p.Id">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Depósito</label>
+                <select @bind="formDepositoId">
+                    <option value="">Seleccioná un depósito</option>
+                    @foreach (var d in depositos)
+                    {
+                        <option value="@d.Id">@d.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Tipo</label>
+                <select @bind="formTipo">
+                    @foreach (var t in Enum.GetValues<TipoMovimiento>())
+                    {
+                        <option value="@t">@t</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Cantidad</label>
+                <input type="number" min="1" @bind="formCantidad" />
+            </div>
+            <div class="field">
+                <label>Nota (opcional)</label>
+                <textarea @bind="formNota"></textarea>
+            </div>
+
+            @if (errorForm is not null)
+            {
+                <p class="error">@errorForm</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="Cerrar">Cancelar</button>
+                <button class="btn-primary" @onclick="Guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Movimiento> movimientos = new();
+    private List<Producto> productos = new();
+    private List<Deposito> depositos = new();
+    private bool cargando = true;
+    private bool mostrarFormulario;
+    private string? errorForm;
+
+    private string formProductoId = "";
+    private string formDepositoId = "";
+    private TipoMovimiento formTipo = TipoMovimiento.Entrada;
+    private int formCantidad = 1;
+    private string? formNota;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+        Realtime.StockActualizado += OnStockActualizado;
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        movimientos = await MovimientoService.ObtenerTodos();
+        cargando = false;
+    }
+
+    private async void OnStockActualizado(StockUpdate update)
+    {
+        await Cargar();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AbrirNuevo()
+    {
+        productos = await ProductoService.ObtenerTodos();
+        depositos = await DepositoService.ObtenerTodos();
+        formProductoId = "";
+        formDepositoId = "";
+        formTipo = TipoMovimiento.Entrada;
+        formCantidad = 1;
+        formNota = null;
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void Cerrar() => mostrarFormulario = false;
+
+    private async Task Guardar()
+    {
+        if (!Guid.TryParse(formProductoId, out var productoId))
+        {
+            errorForm = "Elegí un producto.";
+            return;
+        }
+
+        if (!Guid.TryParse(formDepositoId, out var depositoId))
+        {
+            errorForm = "Elegí un depósito.";
+            return;
+        }
+
+        if (formCantidad <= 0)
+        {
+            errorForm = "La cantidad debe ser mayor a cero.";
+            return;
+        }
+
+        var req = new CrearMovimientoRequest(productoId, depositoId, formTipo, formCantidad, formNota);
+        var (exito, mensaje) = await MovimientoService.Crear(req);
+
+        if (exito)
+        {
+            mostrarFormulario = false;
+            await Cargar();
+        }
+        else
+        {
+            errorForm = mensaje;
+        }
+    }
+
+    public void Dispose()
+    {
+        Realtime.StockActualizado -= OnStockActualizado;
+    }
+}

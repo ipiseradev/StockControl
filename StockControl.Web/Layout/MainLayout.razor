@@ -1,0 +1,83 @@
+﻿@inherits LayoutComponentBase
+@using StockControl.Web.Services
+@inject AuthService AuthService
+@inject RealtimeService Realtime
+@inject NavigationManager Nav
+
+@if (verificando)
+{
+    <div class="app-loading">Cargando...</div>
+}
+else
+{
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">StockControl</div>
+            <nav>
+                <NavLink href="/" Match="NavLinkMatch.All">Inicio</NavLink>
+                <NavLink href="/productos">Productos</NavLink>
+                <NavLink href="/depositos">Depósitos</NavLink>
+                <NavLink href="/movimientos">Movimientos</NavLink>
+                <NavLink href="/alertas">Alertas</NavLink>
+                <NavLink href="/usuarios">Usuarios</NavLink>
+                @if (AuthService.EsAdmin)
+                {
+                    <NavLink href="/cuenta">Mi cuenta</NavLink>
+                }
+            </nav>
+            <div class="sidebar-footer">
+                <div class="comercio-nombre">@AuthService.UsuarioActual?.NombreComercio</div>
+                <button class="logout-btn" @onclick="CerrarSesion">Cerrar sesión</button>
+            </div>
+        </aside>
+
+        <main>
+            @Body
+        </main>
+    </div>
+
+    @if (toast is not null)
+    {
+        <div class="toast">@toast</div>
+    }
+}
+
+@code {
+    private bool verificando = true;
+    private string? toast;
+    private System.Threading.Timer? toastTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var haySesion = await AuthService.CargarSesionGuardada();
+        if (!haySesion)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        verificando = false;
+
+        Realtime.StockActualizado += OnStockActualizado;
+        await Realtime.ConectarAsync(AuthService.UsuarioActual!.TenantId);
+    }
+
+    private void OnStockActualizado(StockUpdate update)
+    {
+        toast = $"📦 {update.ProductoNombre}: stock actualizado a {update.StockActual}";
+        toastTimer?.Dispose();
+        toastTimer = new System.Threading.Timer(_ =>
+        {
+            toast = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 4000, System.Threading.Timeout.Infinite);
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CerrarSesion()
+    {
+        await AuthService.Logout();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

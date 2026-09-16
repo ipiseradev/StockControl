@@ -1,0 +1,228 @@
+@page "/productos"
+@using StockControl.Web.Services
+@implements IDisposable
+@inject ProductoService ProductoService
+@inject RealtimeService Realtime
+
+<PageTitle>Productos - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Productos</h1>
+    <button class="btn-primary" @onclick="AbrirNuevo">+ Nuevo producto</button>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (productos.Count == 0)
+{
+    <p class="empty-state">Todavía no cargaste ningún producto.</p>
+}
+else
+{
+    <table class="tabla-datos">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>SKU</th>
+                <th>Precio</th>
+                <th>Stock mínimo</th>
+                <th>Stock actual</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in productos)
+            {
+                <tr class="@(p.StockActual <= p.StockMinimo ? "fila-alerta" : "")">
+                    <td>@p.Nombre</td>
+                    <td class="mono">@p.Sku</td>
+                    <td class="mono">$@p.PrecioVenta</td>
+                    <td class="mono">@p.StockMinimo</td>
+                    <td class="mono">@p.StockActual</td>
+                    <td>
+                        <button class="btn-link" @onclick="() => AbrirEditar(p)">Editar</button>
+                        <button class="btn-link-danger"style="padding: 8px 8px; border-radius: 8px; background-color: #dc3545; color: white; border: none; text-decoration: none;"
+                                @onclick="() => PedirConfirmacion(p)">
+                            Eliminar
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>@(editando is null ? "Nuevo producto" : "Editar producto")</h2>
+
+            <div class="field">
+                <label>Nombre</label>
+                <input @bind="formNombre" />
+            </div>
+            <div class="field">
+                <label>SKU</label>
+                <input @bind="formSku" />
+            </div>
+            <div class="field">
+                <label>Código de barras</label>
+                <input @bind="formCodigoBarras" />
+            </div>
+            <div class="field">
+                <label>Precio de venta</label>
+                <input type="number" @bind="formPrecio" />
+            </div>
+            <div class="field">
+                <label>Stock mínimo</label>
+                <input type="number" @bind="formStockMinimo" />
+            </div>
+
+            @if (errorForm is not null)
+            {
+                <p class="error">@errorForm</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="Cerrar">Cancelar</button>
+                <button class="btn-primary" @onclick="Guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (eliminando is not null)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Eliminar producto</h2>
+            <p>¿Seguro que querés eliminar <strong>@eliminando.Nombre</strong>? Esta acción no se puede deshacer.</p>
+
+            @if (errorEliminar is not null)
+            {
+                <p class="error">@errorEliminar</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="CancelarEliminar">Cancelar</button>
+                <button class="btn-danger" @onclick="ConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Producto> productos = new();
+    private bool cargando = true;
+    private bool mostrarFormulario = false;
+    private Producto? editando;
+    private string? errorForm;
+
+    private string formNombre = "";
+    private string? formSku;
+    private string? formCodigoBarras;
+    private decimal formPrecio;
+    private int formStockMinimo;
+
+    private Producto? eliminando;
+    private string? errorEliminar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+        Realtime.StockActualizado += OnStockActualizado;
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        productos = await ProductoService.ObtenerTodos();
+        cargando = false;
+    }
+
+    private void OnStockActualizado(StockUpdate update)
+    {
+        var producto = productos.FirstOrDefault(p => p.Id == update.ProductoId);
+        if (producto is null) return;
+
+        var indice = productos.IndexOf(producto);
+        productos[indice] = producto with { StockActual = update.StockActual };
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void AbrirNuevo()
+    {
+        editando = null;
+        formNombre = ""; formSku = null; formCodigoBarras = null; formPrecio = 0; formStockMinimo = 0;
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void AbrirEditar(Producto p)
+    {
+        editando = p;
+        formNombre = p.Nombre; formSku = p.Sku; formCodigoBarras = p.CodigoBarras;
+        formPrecio = p.PrecioVenta; formStockMinimo = p.StockMinimo;
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void Cerrar() => mostrarFormulario = false;
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(formNombre))
+        {
+            errorForm = "El nombre es obligatorio.";
+            return;
+        }
+
+        var req = new CrearProductoRequest(formNombre, formCodigoBarras, formSku, formPrecio, formStockMinimo);
+
+        var ok = editando is null
+            ? await ProductoService.Crear(req)
+            : await ProductoService.Actualizar(editando.Id, req);
+
+        if (ok)
+        {
+            mostrarFormulario = false;
+            await Cargar();
+        }
+        else
+        {
+            errorForm = "No se pudo guardar el producto.";
+        }
+    }
+
+    private void PedirConfirmacion(Producto p)
+    {
+        eliminando = p;
+        errorEliminar = null;
+    }
+
+    private void CancelarEliminar() => eliminando = null;
+
+    private async Task ConfirmarEliminar()
+    {
+        if (eliminando is null) return;
+
+        var (exito, mensaje) = await ProductoService.Eliminar(eliminando.Id);
+        if (exito)
+        {
+            eliminando = null;
+            await Cargar();
+        }
+        else
+        {
+            errorEliminar = mensaje;
+        }
+    }
+
+    public void Dispose()
+    {
+        Realtime.StockActualizado -= OnStockActualizado;
+    }
+}

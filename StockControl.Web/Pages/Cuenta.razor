@@ -1,0 +1,86 @@
+@page "/cuenta"
+@using StockControl.Web.Services
+@inject SuscripcionService SuscripcionService
+@inject AuthService AuthService
+
+<PageTitle>Mi cuenta - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Mi cuenta</h1>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="cuenta-card">
+        <span class="badge @ClaseBadge(estado?.EstadoSuscripcion)">@estado?.EstadoSuscripcion</span>
+        <h2 style="font-family: 'IBM Plex Mono', monospace; font-size: 1.1rem; margin-top: 0;">@AuthService.UsuarioActual?.NombreComercio</h2>
+
+        @if (estado?.FechaProximoPago is not null)
+        {
+            <p>Próximo pago: @estado.FechaProximoPago.Value.ToLocalTime().ToString("dd/MM/yyyy")</p>
+        }
+        else
+        {
+            <p>Activá tu suscripción para seguir usando StockControl sin interrupciones.</p>
+        }
+
+        @if (AuthService.EsAdmin)
+        {
+            @if (linkPago is not null)
+            {
+                <p><a href="@linkPago" target="_blank">Ir a pagar en Mercado Pago →</a></p>
+            }
+            else
+            {
+                <button class="btn-primary" @onclick="Generar" disabled="@generando">
+                    @(generando ? "Generando..." : "Generar link de pago")
+                </button>
+            }
+
+            @if (error is not null)
+            {
+                <p class="error">@error</p>
+            }
+        }
+    </div>
+}
+
+@code {
+    private SuscripcionEstadoResponse? estado;
+    private bool cargando = true;
+    private bool generando;
+    private string? linkPago;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        estado = await SuscripcionService.ObtenerEstado();
+        cargando = false;
+    }
+
+    private async Task Generar()
+    {
+        generando = true;
+        error = null;
+
+        var resultado = await SuscripcionService.GenerarLink(null);
+        generando = false;
+
+        if (resultado is null)
+            error = "No se pudo generar el link de pago. Intentá de nuevo.";
+        else
+            linkPago = resultado.LinkPago;
+    }
+
+    private static string ClaseBadge(EstadoSuscripcion? estado) => estado switch
+    {
+        EstadoSuscripcion.Activa => "badge-activa",
+        EstadoSuscripcion.Vencida => "badge-vencida",
+        EstadoSuscripcion.Cancelada => "badge-cancelada",
+        _ => "badge-trial"
+    };
+}

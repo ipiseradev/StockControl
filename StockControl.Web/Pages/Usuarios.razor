@@ -1,0 +1,142 @@
+@page "/usuarios"
+@using StockControl.Web.Services
+@inject UsuarioService UsuarioService
+@inject AuthService AuthService
+
+<PageTitle>Usuarios - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Usuarios</h1>
+    @if (AuthService.EsAdmin)
+    {
+        <button class="btn-primary" @onclick="AbrirNuevo">+ Invitar usuario</button>
+    }
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <table class="tabla-datos">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Desde</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in usuarios)
+            {
+                <tr>
+                    <td>@u.Nombre</td>
+                    <td class="mono">@u.Email</td>
+                    <td><span class="rol-tag">@u.Rol</span></td>
+                    <td class="mono">@u.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Invitar usuario</h2>
+
+            <div class="field">
+                <label>Nombre</label>
+                <input @bind="formNombre" />
+            </div>
+            <div class="field">
+                <label>Email</label>
+                <input @bind="formEmail" />
+            </div>
+            <div class="field">
+                <label>Contraseña provisoria</label>
+                <input type="password" @bind="formPassword" />
+            </div>
+            <div class="field">
+                <label>Rol</label>
+                <select @bind="formRol">
+                    @foreach (var r in Enum.GetValues<RolUsuario>())
+                    {
+                        <option value="@r">@r</option>
+                    }
+                </select>
+            </div>
+
+            @if (errorForm is not null)
+            {
+                <p class="error">@errorForm</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="Cerrar">Cancelar</button>
+                <button class="btn-primary" @onclick="Guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Usuario> usuarios = new();
+    private bool cargando = true;
+    private bool mostrarFormulario;
+    private string? errorForm;
+
+    private string formNombre = "";
+    private string formEmail = "";
+    private string formPassword = "";
+    private RolUsuario formRol = RolUsuario.Empleado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        usuarios = await UsuarioService.ObtenerTodos();
+        cargando = false;
+    }
+
+    private void AbrirNuevo()
+    {
+        formNombre = "";
+        formEmail = "";
+        formPassword = "";
+        formRol = RolUsuario.Empleado;
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void Cerrar() => mostrarFormulario = false;
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(formNombre) || string.IsNullOrWhiteSpace(formEmail) || string.IsNullOrWhiteSpace(formPassword))
+        {
+            errorForm = "Completá todos los campos.";
+            return;
+        }
+
+        var req = new CrearUsuarioRequest(formNombre, formEmail, formPassword, formRol);
+        var (exito, mensaje) = await UsuarioService.Crear(req);
+
+        if (exito)
+        {
+            mostrarFormulario = false;
+            await Cargar();
+        }
+        else
+        {
+            errorForm = mensaje;
+        }
+    }
+}

@@ -1,0 +1,110 @@
+@page "/"
+@using StockControl.Web.Services
+@implements IDisposable
+@inject AuthService AuthService
+@inject ProductoService ProductoService
+@inject MovimientoService MovimientoService
+@inject RealtimeService Realtime
+
+<PageTitle>StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Hola, @AuthService.UsuarioActual?.NombreUsuario</h1>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">@totalProductos</div>
+            <div class="stat-label" style="color:black">Productos cargados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value @(alertas.Count > 0 ? "alerta" : "")">@alertas.Count</div>
+            <div class="stat-label" style="color:red">Alertas de stock bajo</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@ultimosMovimientos.Count</div>
+            <div class="stat-label" style="color:black" >Movimientos recientes</div>
+        </div>
+        
+    </div>
+
+    @if (alertas.Count > 0)
+    {
+        <div class="dashboard-section">
+            <h2>Productos con stock bajo</h2>
+            <table class="tabla-datos">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Stock actual</th>
+                        <th>Stock mínimo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in alertas)
+                    {
+                        <tr class="fila-alerta">
+                            <td>@p.Nombre</td>
+                            <td class="mono">@p.StockActual</td>
+                            <td class="mono">@p.StockMinimo</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <div class="dashboard-section">
+        <h2>Últimos movimientos</h2>
+        @if (ultimosMovimientos.Count == 0)
+        {
+            <p class="empty-state">Todavía no registraste ningún movimiento.</p>
+        }
+        else
+        {
+            @foreach (var m in ultimosMovimientos)
+            {
+                <div class="actividad-item">
+                    <span>@m.Tipo <strong>@m.ProductoNombre</strong> · @m.Cantidad un. · @m.DepositoNombre</span>
+                    <span class="actividad-fecha">@m.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</span>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private int totalProductos;
+    private List<Producto> alertas = new();
+    private List<Movimiento> ultimosMovimientos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var productos = await ProductoService.ObtenerTodos();
+        totalProductos = productos.Count;
+        alertas = await ProductoService.ObtenerAlertas();
+        ultimosMovimientos = (await MovimientoService.ObtenerTodos()).Take(8).ToList();
+        cargando = false;
+
+        Realtime.StockActualizado += OnStockActualizado;
+    }
+
+    private async void OnStockActualizado(StockUpdate update)
+    {
+        alertas = await ProductoService.ObtenerAlertas();
+        ultimosMovimientos = (await MovimientoService.ObtenerTodos()).Take(8).ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Realtime.StockActualizado -= OnStockActualizado;
+    }
+}

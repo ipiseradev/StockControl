@@ -1,0 +1,137 @@
+@page "/depositos"
+@using StockControl.Web.Services
+@inject DepositoService DepositoService
+
+<PageTitle>Depósitos - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Depósitos</h1>
+    <button class="btn-primary" @onclick="AbrirNuevo">+ Nuevo depósito</button>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (depositos.Count == 0)
+{
+    <p class="empty-state">Todavía no cargaste ningún depósito.</p>
+}
+else
+{
+    <table class="tabla-datos">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Es mostrador</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var d in depositos)
+            {
+                <tr>
+                    <td>@d.Nombre</td>
+                    <td class="mono">@(d.EsMostrador ? "Sí" : "No")</td>
+                    <td><button class="btn-link" @onclick="() => AbrirEditar(d)">Editar</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>@(editando is null ? "Nuevo depósito" : "Editar depósito")</h2>
+
+            <div class="field">
+                <label>Nombre</label>
+                <input @bind="formNombre" />
+            </div>
+            <div class="field field-checkbox">
+                <input type="checkbox" id="esMostrador" @bind="formEsMostrador" />
+                <label for="esMostrador">Es mostrador (punto de venta)</label>
+            </div>
+
+            @if (errorForm is not null)
+            {
+                <p class="error">@errorForm</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="Cerrar">Cancelar</button>
+                <button class="btn-primary" @onclick="Guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Deposito> depositos = new();
+    private bool cargando = true;
+    private bool mostrarFormulario;
+    private Deposito? editando;
+    private string? errorForm;
+
+    private string formNombre = "";
+    private bool formEsMostrador;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        depositos = await DepositoService.ObtenerTodos();
+        cargando = false;
+    }
+
+    private void AbrirNuevo()
+    {
+        editando = null;
+        formNombre = "";
+        formEsMostrador = false;
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void AbrirEditar(Deposito d)
+    {
+        editando = d;
+        formNombre = d.Nombre;
+        formEsMostrador = d.EsMostrador;
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void Cerrar() => mostrarFormulario = false;
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(formNombre))
+        {
+            errorForm = "El nombre es obligatorio.";
+            return;
+        }
+
+        var req = new CrearDepositoRequest(formNombre, formEsMostrador);
+
+        var ok = editando is null
+            ? await DepositoService.Crear(req)
+            : await DepositoService.Actualizar(editando.Id, req);
+
+        if (ok)
+        {
+            mostrarFormulario = false;
+            await Cargar();
+        }
+        else
+        {
+            errorForm = "No se pudo guardar el depósito.";
+        }
+    }
+}

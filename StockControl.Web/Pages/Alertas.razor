@@ -1,0 +1,73 @@
+@page "/alertas"
+@using StockControl.Web.Services
+@implements IDisposable
+@inject ProductoService ProductoService
+@inject RealtimeService Realtime
+
+<PageTitle>Alertas - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Alertas de stock</h1>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (alertas.Count == 0)
+{
+    <p class="empty-state">✓ Todo en orden, ningún producto está por debajo de su stock mínimo.</p>
+}
+else
+{
+    <table class="tabla-datos">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>SKU</th>
+                <th>Stock actual</th>
+                <th>Stock mínimo</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in alertas)
+            {
+                <tr class="fila-alerta">
+                    <td>@p.Nombre</td>
+                    <td class="mono">@p.Sku</td>
+                    <td class="mono">@p.StockActual</td>
+                    <td class="mono">@p.StockMinimo</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Producto> alertas = new();
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+        Realtime.StockActualizado += OnStockActualizado;
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        alertas = await ProductoService.ObtenerAlertas();
+        cargando = false;
+    }
+
+    private async void OnStockActualizado(StockUpdate update)
+    {
+        await Cargar();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Realtime.StockActualizado -= OnStockActualizado;
+    }
+}
