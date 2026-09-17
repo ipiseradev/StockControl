@@ -8,7 +8,7 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddTransient<ApiAuthMessageHandler>();
-builder.Services.AddHttpClient("StockControlAPI", client => client.BaseAddress = new Uri("http://localhost:5045/"))
+builder.Services.AddHttpClient("StockControlAPI", client => client.BaseAddress = new Uri("https://localhost:7292/"))
     .AddHttpMessageHandler<ApiAuthMessageHandler>();
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("StockControlAPI"));
 

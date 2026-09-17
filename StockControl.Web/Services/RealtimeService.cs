@@ -16,7 +16,7 @@ public class RealtimeService : IAsyncDisposable
             return;
 
         _connection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:5045/hubs/stock")
+            .WithUrl("https://localhost:7292/hubs/stock")
             .WithAutomaticReconnect()
             .Build();
 
