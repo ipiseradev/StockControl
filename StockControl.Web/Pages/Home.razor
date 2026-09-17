@@ -21,15 +21,15 @@ else
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-value">@totalProductos</div>
-            <div class="stat-label">Productos cargados</div>
+            <div class="stat-label" style="color:black">Productos cargados</div>
         </div>
         <div class="stat-card @(pulsoAlertas ? "pulso" : "")">
             <div class="stat-value @(alertas.Count > 0 ? "alerta" : "")">@alertas.Count</div>
-            <div class="stat-label">Alertas de stock bajo</div>
+            <div class="stat-label" style="color:red">Alertas de stock bajo</div>
         </div>
         <div class="stat-card @(pulsoMovimientos ? "pulso" : "")">
             <div class="stat-value">@todosMovimientos.Count</div>
-            <div class="stat-label">Movimientos totales</div>
+            <div class="stat-label" style="color:black">Movimientos totales</div>
         </div>
     </div>
 
