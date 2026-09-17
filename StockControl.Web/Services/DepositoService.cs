@@ -30,4 +30,13 @@ public class DepositoService
         var response = await _http.PutAsJsonAsync($"depositos/{id}", req);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<(bool exito, string? mensaje)> Eliminar(Guid id)
+    {
+        var response = await _http.DeleteAsync($"depositos/{id}");
+        if (response.IsSuccessStatusCode) return (true, null);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        return (false, body?.GetValueOrDefault("mensaje") ?? "No se pudo eliminar.");
+    }
 }

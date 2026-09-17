@@ -5,8 +5,8 @@
 <PageTitle>Depósitos - StockControl</PageTitle>
 
 <div class="page-header">
-    <h1>Depósitos</h1>
-    <button class="btn-primary" @onclick="AbrirNuevo">+ Nuevo depósito</button>
+    <h1> Cargar Depósitos</h1>
+    <button class="btn-primary" @onclick="AbrirNuevo">Nuevo depósito</button>
 </div>
 
 @if (cargando)
@@ -33,11 +33,17 @@ else
                 <tr>
                     <td data-label="Nombre">@d.Nombre</td>
                     <td class="mono" data-label="Es mostrador">@(d.EsMostrador ? "Sí" : "No")</td>
-                    <td class="celda-acciones"><button class="btn-link" @onclick="() => AbrirEditar(d)">Editar</button></td>
+                    <td class="celda-acciones">
+                        <div class="row-actions">
+                            <button class="btn-link" @onclick="() => AbrirEditar(d)">Editar</button>
+                            <button class="btn-link-danger" @onclick="() => PedirConfirmacion(d)">Eliminar</button>
+                        </div>
+                    </td>
                 </tr>
             }
         </tbody>
     </table>
+    
 }
 
 @if (mostrarFormulario)
@@ -68,6 +74,26 @@ else
     </div>
 }
 
+@if (eliminando is not null)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Eliminar depósito</h2>
+            <p>¿Seguro que querés eliminar <strong>@eliminando.Nombre</strong>? Esta acción no se puede deshacer.</p>
+
+            @if (errorEliminar is not null)
+            {
+                <p class="error">@errorEliminar</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="CancelarEliminar">Cancelar</button>
+                <button class="btn-danger" @onclick="ConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Deposito> depositos = new();
     private bool cargando = true;
@@ -77,6 +103,9 @@ else
 
     private string formNombre = "";
     private bool formEsMostrador;
+
+    private Deposito? eliminando;
+    private string? errorEliminar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -132,6 +161,30 @@ else
         else
         {
             errorForm = "No se pudo guardar el depósito.";
+        }
+    }
+
+    private void PedirConfirmacion(Deposito d)
+    {
+        eliminando = d;
+        errorEliminar = null;
+    }
+
+    private void CancelarEliminar() => eliminando = null;
+
+    private async Task ConfirmarEliminar()
+    {
+        if (eliminando is null) return;
+
+        var (exito, mensaje) = await DepositoService.Eliminar(eliminando.Id);
+        if (exito)
+        {
+            eliminando = null;
+            await Cargar();
+        }
+        else
+        {
+            errorEliminar = mensaje;
         }
     }
 }

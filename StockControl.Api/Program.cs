@@ -274,6 +274,24 @@ depositos.MapPut("/{id}", async (Guid id, CrearDepositoRequest req, ClaimsPrinci
     return Results.Ok(new DepositoResponse(deposito.Id, deposito.Nombre, deposito.EsMostrador));
 });
 
+depositos.MapDelete("/{id}", async (Guid id, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var tenantId = user.GetTenantId();
+
+    var deposito = await db.Depositos.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tenantId);
+    if (deposito is null)
+        return Results.NotFound(new { mensaje = "Depósito no encontrado." });
+
+    var tieneMovimientos = await db.Movimientos.AnyAsync(m => m.DepositoId == id);
+    if (tieneMovimientos)
+        return Results.BadRequest(new { mensaje = "No se puede eliminar un depósito con movimientos registrados." });
+
+    db.Depositos.Remove(deposito);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
 
 // --- ENDPOINTS DE MOVIMIENTOS ---
 
