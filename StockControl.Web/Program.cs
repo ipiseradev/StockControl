@@ -18,6 +18,7 @@ builder.Services.AddScoped<DepositoService>();
 builder.Services.AddScoped<MovimientoService>();
 builder.Services.AddScoped<UsuarioService>();
 builder.Services.AddScoped<SuscripcionService>();
+builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<RealtimeService>();
 
 await builder.Build().RunAsync();

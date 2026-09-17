@@ -400,6 +400,89 @@ usuarios.MapPost("/", async (CrearUsuarioRequest req, ClaimsPrincipal user, AppD
 })
 .RequireAuthorization("SoloAdmin"); // solo el admin del comercio puede invitar empleados
 
+// ---------- ENDPOINTS DE AGENDA ----------
+
+var agenda = app.MapGroup("/agenda").RequireAuthorization();
+
+agenda.MapGet("/", async (int anio, int mes, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var tenantId = user.GetTenantId();
+
+    var desde = new DateOnly(anio, mes, 1);
+    var hasta = desde.AddMonths(1);
+
+    var lista = await db.EventosAgenda
+        .Where(e => e.TenantId == tenantId && e.Fecha >= desde && e.Fecha < hasta)
+        .OrderBy(e => e.Fecha).ThenBy(e => e.Hora == null ? 0 : 1).ThenBy(e => e.Hora)
+        .Select(e => new EventoAgendaResponse(e.Id, e.Titulo, e.Descripcion, e.Fecha, e.Hora, e.Completada, e.Usuario.Nombre))
+        .ToListAsync();
+
+    return Results.Ok(lista);
+});
+
+agenda.MapPost("/", async (CrearEventoAgendaRequest req, ClaimsPrincipal user, AppDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Titulo))
+        return Results.BadRequest(new { mensaje = "El título es obligatorio." });
+
+    var tenantId = user.GetTenantId();
+    var usuarioId = user.GetUsuarioId();
+
+    var evento = new EventoAgenda
+    {
+        TenantId = tenantId,
+        UsuarioId = usuarioId,
+        Titulo = req.Titulo,
+        Descripcion = req.Descripcion,
+        Fecha = req.Fecha,
+        Hora = req.Hora
+    };
+
+    db.EventosAgenda.Add(evento);
+    await db.SaveChangesAsync();
+
+    var usuario = await db.Usuarios.FirstAsync(u => u.Id == usuarioId);
+
+    return Results.Created($"/agenda/{evento.Id}", new EventoAgendaResponse(
+        evento.Id, evento.Titulo, evento.Descripcion, evento.Fecha, evento.Hora, evento.Completada, usuario.Nombre));
+});
+
+agenda.MapPut("/{id}", async (Guid id, ActualizarEventoAgendaRequest req, ClaimsPrincipal user, AppDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Titulo))
+        return Results.BadRequest(new { mensaje = "El título es obligatorio." });
+
+    var tenantId = user.GetTenantId();
+
+    var evento = await db.EventosAgenda.Include(e => e.Usuario).FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId);
+    if (evento is null)
+        return Results.NotFound(new { mensaje = "Evento no encontrado." });
+
+    evento.Titulo = req.Titulo;
+    evento.Descripcion = req.Descripcion;
+    evento.Fecha = req.Fecha;
+    evento.Hora = req.Hora;
+    evento.Completada = req.Completada;
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new EventoAgendaResponse(evento.Id, evento.Titulo, evento.Descripcion, evento.Fecha, evento.Hora, evento.Completada, evento.Usuario.Nombre));
+});
+
+agenda.MapDelete("/{id}", async (Guid id, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var tenantId = user.GetTenantId();
+
+    var evento = await db.EventosAgenda.FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId);
+    if (evento is null)
+        return Results.NotFound(new { mensaje = "Evento no encontrado." });
+
+    db.EventosAgenda.Remove(evento);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
 // ---------- ENDPOINTS DE SUSCRIPCIÓN ----------
 
 app.MapGet("/suscripcion", async (ClaimsPrincipal user, AppDbContext db) =>

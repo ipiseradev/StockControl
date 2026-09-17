@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Deposito> Depositos => Set<Deposito>();
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<MovimientoStock> Movimientos => Set<MovimientoStock>();
+    public DbSet<EventoAgenda> EventosAgenda => Set<EventoAgenda>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,0 +1,378 @@
+@page "/agenda"
+@using StockControl.Web.Services
+@inject AgendaService AgendaService
+
+<PageTitle>Agenda - StockControl</PageTitle>
+
+<div class="page-header">
+    <h1>Agenda</h1>
+    <button class="btn-primary" @onclick="() => AbrirNuevo(DateOnly.FromDateTime(DateTime.Today))">+ Nuevo</button>
+</div>
+
+<div class="agenda-toolbar">
+    <div class="agenda-nav">
+        <button class="btn-icon" @onclick="MesAnterior" aria-label="Mes anterior">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <h2 class="agenda-titulo-mes">@TituloMes()</h2>
+        <button class="btn-icon" @onclick="MesSiguiente" aria-label="Mes siguiente">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+    </div>
+    <button class="btn-secondary" @onclick="IrAHoy">Hoy</button>
+</div>
+
+<div class="agenda-leyenda">
+    <span class="agenda-leyenda-item"><span class="agenda-leyenda-dot chip-tarea"></span>Tarea</span>
+    <span class="agenda-leyenda-item"><span class="agenda-leyenda-dot chip-evento"></span>Evento</span>
+    <span class="agenda-leyenda-item"><span class="agenda-leyenda-dot chip-vencida"></span>Vencida</span>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="calendario">
+        <div class="calendario-dias-semana">
+            <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+        </div>
+        <div class="calendario-grilla">
+            @foreach (var dia in DiasDelCalendario())
+            {
+                var itemsDelDia = ItemsDe(dia);
+                <div class="calendario-dia @ClaseDia(dia)" @onclick="() => AbrirDia(dia)">
+                    <span class="calendario-dia-numero">@dia.Day</span>
+                    <div class="calendario-dia-items">
+                        @foreach (var item in itemsDelDia.Take(3))
+                        {
+                            <div class="agenda-chip @ClaseChip(item)">
+                                @if (item.Hora is not null)
+                                {
+                                    <span class="chip-hora">@item.Hora.Value.ToString("HH:mm")</span>
+                                }
+                                <span class="chip-titulo">@item.Titulo</span>
+                            </div>
+                        }
+                        @if (itemsDelDia.Count > 3)
+                        {
+                            <div class="agenda-chip-mas">+@(itemsDelDia.Count - 3) más</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (diaSeleccionado is not null && !mostrarFormulario)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>@FormatoFechaLarga(diaSeleccionado.Value)</h2>
+
+            @{ var items = ItemsDe(diaSeleccionado.Value); }
+
+            @if (items.Count == 0)
+            {
+                <p class="empty-state-mini">No hay nada cargado para este día.</p>
+            }
+            else
+            {
+                <ul class="agenda-lista-dia">
+                    @foreach (var item in items)
+                    {
+                        <li class="agenda-item @(item.Completada ? "item-completado" : "")">
+                            <input type="checkbox" checked="@item.Completada" @onchange="() => AlternarCompletada(item)" />
+                            <div class="agenda-item-info">
+                                <div class="agenda-item-titulo">
+                                    @if (item.Hora is not null)
+                                    {
+                                        <span class="agenda-item-hora">@item.Hora.Value.ToString("HH:mm")</span>
+                                    }
+                                    @item.Titulo
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(item.Descripcion))
+                                {
+                                    <div class="agenda-item-desc">@item.Descripcion</div>
+                                }
+                            </div>
+                            <div class="row-actions">
+                                <button class="btn-link" @onclick="() => AbrirEditar(item)">Editar</button>
+                                <button class="btn-link-danger" @onclick="() => PedirConfirmacion(item)">Eliminar</button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <div class="modal-actions modal-actions-split">
+                <button class="btn-primary" @onclick="() => AbrirNuevo(diaSeleccionado.Value)">+ Agregar</button>
+                <button class="btn-secondary" @onclick="CerrarDia">Cerrar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>@(editando is null ? "Nuevo" : "Editar")</h2>
+
+            <div class="field">
+                <label>Título</label>
+                <input @bind="formTitulo" placeholder="Ej: Llamar al proveedor" />
+            </div>
+            <div class="field">
+                <label>Descripción</label>
+                <textarea @bind="formDescripcion" placeholder="Opcional"></textarea>
+            </div>
+            <div class="field">
+                <label>Fecha</label>
+                <input type="date" @bind="formFecha" />
+            </div>
+            <div class="field field-checkbox">
+                <input type="checkbox" id="esEvento" @bind="formEsEvento" />
+                <label for="esEvento">Tiene horario específico (evento)</label>
+            </div>
+            @if (formEsEvento)
+            {
+                <div class="field">
+                    <label>Hora</label>
+                    <input type="time" @bind="formHora" />
+                </div>
+            }
+
+            @if (errorForm is not null)
+            {
+                <p class="error">@errorForm</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="CerrarFormulario">Cancelar</button>
+                <button class="btn-primary" @onclick="Guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (eliminando is not null)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Eliminar</h2>
+            <p>¿Seguro que querés eliminar <strong>@eliminando.Titulo</strong>? Esta acción no se puede deshacer.</p>
+
+            @if (errorEliminar is not null)
+            {
+                <p class="error">@errorEliminar</p>
+            }
+
+            <div class="modal-actions">
+                <button class="btn-secondary" @onclick="CancelarEliminar">Cancelar</button>
+                <button class="btn-danger" @onclick="ConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly string[] NombresMeses =
+        { "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" };
+
+    private static readonly string[] NombresDiasLargos =
+        { "domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado" };
+
+    private int anioActual;
+    private int mesActual;
+    private List<EventoAgenda> eventos = new();
+    private bool cargando = true;
+
+    private DateOnly? diaSeleccionado;
+    private bool mostrarFormulario;
+    private EventoAgenda? editando;
+    private string? errorForm;
+
+    private string formTitulo = "";
+    private string? formDescripcion;
+    private DateOnly formFecha;
+    private bool formEsEvento;
+    private TimeOnly formHora = new(9, 0);
+
+    private EventoAgenda? eliminando;
+    private string? errorEliminar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hoy = DateTime.Today;
+        anioActual = hoy.Year;
+        mesActual = hoy.Month;
+        await CargarMes();
+    }
+
+    private async Task CargarMes()
+    {
+        cargando = true;
+        eventos = await AgendaService.ObtenerPorMes(anioActual, mesActual);
+        cargando = false;
+    }
+
+    private async Task MesAnterior()
+    {
+        mesActual--;
+        if (mesActual < 1) { mesActual = 12; anioActual--; }
+        await CargarMes();
+    }
+
+    private async Task MesSiguiente()
+    {
+        mesActual++;
+        if (mesActual > 12) { mesActual = 1; anioActual++; }
+        await CargarMes();
+    }
+
+    private async Task IrAHoy()
+    {
+        var hoy = DateTime.Today;
+        anioActual = hoy.Year;
+        mesActual = hoy.Month;
+        await CargarMes();
+    }
+
+    private string TituloMes() => $"{Capitalizar(NombresMeses[mesActual - 1])} {anioActual}";
+
+    private static string Capitalizar(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+
+    private List<DateOnly> DiasDelCalendario()
+    {
+        var primerDiaMes = new DateOnly(anioActual, mesActual, 1);
+        var offset = ((int)primerDiaMes.DayOfWeek + 6) % 7; // semana arranca en lunes
+        var inicio = primerDiaMes.AddDays(-offset);
+
+        var dias = new List<DateOnly>();
+        for (var i = 0; i < 42; i++)
+            dias.Add(inicio.AddDays(i));
+
+        return dias;
+    }
+
+    private List<EventoAgenda> ItemsDe(DateOnly dia) => eventos.Where(e => e.Fecha == dia).ToList();
+
+    private string ClaseDia(DateOnly dia)
+    {
+        var clases = new List<string>();
+        if (dia.Month != mesActual) clases.Add("dia-otro-mes");
+        if (dia == DateOnly.FromDateTime(DateTime.Today)) clases.Add("dia-hoy");
+        if (dia == diaSeleccionado) clases.Add("dia-seleccionado");
+        return string.Join(" ", clases);
+    }
+
+    private string ClaseChip(EventoAgenda item)
+    {
+        var vencida = !item.Completada && item.Fecha < DateOnly.FromDateTime(DateTime.Today);
+        var clases = new List<string> { item.Hora is not null ? "chip-evento" : "chip-tarea" };
+        if (item.Completada) clases.Add("chip-completada");
+        if (vencida) clases.Add("chip-vencida");
+        return string.Join(" ", clases);
+    }
+
+    private string FormatoFechaLarga(DateOnly dia) =>
+        $"{Capitalizar(NombresDiasLargos[(int)dia.DayOfWeek])} {dia.Day} de {NombresMeses[dia.Month - 1]}";
+
+    private void AbrirDia(DateOnly dia) => diaSeleccionado = dia;
+
+    private void CerrarDia() => diaSeleccionado = null;
+
+    private void AbrirNuevo(DateOnly dia)
+    {
+        editando = null;
+        formTitulo = "";
+        formDescripcion = null;
+        formFecha = dia;
+        formEsEvento = false;
+        formHora = new TimeOnly(9, 0);
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void AbrirEditar(EventoAgenda item)
+    {
+        editando = item;
+        formTitulo = item.Titulo;
+        formDescripcion = item.Descripcion;
+        formFecha = item.Fecha;
+        formEsEvento = item.Hora is not null;
+        formHora = item.Hora ?? new TimeOnly(9, 0);
+        errorForm = null;
+        mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario() => mostrarFormulario = false;
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(formTitulo))
+        {
+            errorForm = "El título es obligatorio.";
+            return;
+        }
+
+        var hora = formEsEvento ? formHora : (TimeOnly?)null;
+
+        var ok = editando is null
+            ? await AgendaService.Crear(new CrearEventoAgendaRequest(formTitulo, formDescripcion, formFecha, hora))
+            : await AgendaService.Actualizar(editando.Id, new ActualizarEventoAgendaRequest(formTitulo, formDescripcion, formFecha, hora, editando.Completada));
+
+        if (!ok)
+        {
+            errorForm = "No se pudo guardar.";
+            return;
+        }
+
+        mostrarFormulario = false;
+
+        if (anioActual != formFecha.Year || mesActual != formFecha.Month)
+        {
+            anioActual = formFecha.Year;
+            mesActual = formFecha.Month;
+            diaSeleccionado = null;
+        }
+
+        await CargarMes();
+    }
+
+    private void PedirConfirmacion(EventoAgenda item)
+    {
+        eliminando = item;
+        errorEliminar = null;
+    }
+
+    private void CancelarEliminar() => eliminando = null;
+
+    private async Task ConfirmarEliminar()
+    {
+        if (eliminando is null) return;
+
+        var ok = await AgendaService.Eliminar(eliminando.Id);
+        if (ok)
+        {
+            eliminando = null;
+            await CargarMes();
+        }
+        else
+        {
+            errorEliminar = "No se pudo eliminar.";
+        }
+    }
+
+    private async Task AlternarCompletada(EventoAgenda item)
+    {
+        var req = new ActualizarEventoAgendaRequest(item.Titulo, item.Descripcion, item.Fecha, item.Hora, !item.Completada);
+        if (await AgendaService.Actualizar(item.Id, req))
+        {
+            await CargarMes();
+        }
+    }
+}

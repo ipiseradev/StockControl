@@ -1162,6 +1162,294 @@ main {
 }
 
 /* ============================================================
+   AGENDA / CALENDARIO
+   ============================================================ */
+.agenda-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.agenda-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.agenda-titulo-mes {
+    font-size: 1.05rem;
+    margin: 0;
+    min-width: 11ch;
+    text-align: center;
+}
+
+.btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-icon:hover {
+    background: var(--color-muted-bg);
+}
+
+.btn-icon svg {
+    width: 17px;
+    height: 17px;
+}
+
+.agenda-leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 1.1rem;
+}
+
+.agenda-leyenda-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.agenda-leyenda-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.calendario {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.calendario-dias-semana {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.calendario-dias-semana span {
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+}
+
+.calendario-grilla {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: minmax(96px, 1fr);
+}
+
+.calendario-dia {
+    border-right: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    transition: background var(--transition-fast);
+}
+
+.calendario-dia:hover {
+    background: var(--color-muted-bg);
+}
+
+.calendario-dia:nth-child(7n) {
+    border-right: none;
+}
+
+.calendario-dia-numero {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+.dia-otro-mes {
+    background: var(--color-muted-bg);
+}
+
+.dia-otro-mes .calendario-dia-numero {
+    color: var(--color-text-tertiary);
+    opacity: 0.6;
+}
+
+.dia-hoy .calendario-dia-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-ink);
+    color: var(--color-bg);
+    font-weight: 600;
+}
+
+.dia-seleccionado {
+    box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+.calendario-dia-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.agenda-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    background: var(--color-muted-bg);
+    color: var(--color-text);
+    overflow: hidden;
+    white-space: nowrap;
+    box-shadow: inset 2px 0 0 var(--color-text-tertiary);
+}
+
+.agenda-chip.chip-tarea {
+    box-shadow: inset 2px 0 0 var(--color-ink-soft);
+}
+
+.agenda-chip.chip-evento {
+    box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+.agenda-chip.chip-vencida {
+    box-shadow: inset 2px 0 0 var(--color-danger);
+}
+
+.agenda-chip.chip-completada {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.chip-hora {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+.chip-titulo {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agenda-chip-mas {
+    font-size: 0.68rem;
+    color: var(--color-text-tertiary);
+    padding: 0 0.4rem;
+}
+
+.agenda-leyenda-dot.chip-tarea { background: var(--color-ink-soft); }
+.agenda-leyenda-dot.chip-evento { background: var(--color-accent); }
+.agenda-leyenda-dot.chip-vencida { background: var(--color-danger); }
+
+.empty-state-mini {
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+.agenda-lista-dia {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 45vh;
+    overflow-y: auto;
+}
+
+.agenda-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.agenda-item:last-child {
+    border-bottom: none;
+}
+
+.agenda-item input[type="checkbox"] {
+    margin-top: 0.2rem;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-ink);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.agenda-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.agenda-item-titulo {
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.agenda-item-hora {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-accent);
+    flex-shrink: 0;
+}
+
+.agenda-item-desc {
+    font-size: 0.82rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.2rem;
+}
+
+.item-completado .agenda-item-titulo {
+    text-decoration: line-through;
+    color: var(--color-text-tertiary);
+}
+
+.item-completado .agenda-item-desc {
+    text-decoration: line-through;
+    color: var(--color-text-tertiary);
+}
+
+.modal-actions-split {
+    justify-content: space-between;
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 860px) {
@@ -1324,6 +1612,39 @@ main {
     .tabla-datos td:empty,
     .tabla-datos td.celda-acciones {
         justify-content: flex-end;
+    }
+
+    .calendario-grilla {
+        grid-auto-rows: minmax(60px, 1fr);
+    }
+
+    .calendario-dia {
+        padding: 0.3rem;
+    }
+
+    .calendario-dia-numero {
+        font-size: 0.72rem;
+    }
+
+    .chip-titulo {
+        display: none;
+    }
+
+    .agenda-chip {
+        justify-content: center;
+        padding: 0.15rem;
+    }
+
+    .chip-hora {
+        display: none;
+    }
+
+    .agenda-chip-mas {
+        text-align: center;
+    }
+
+    .agenda-titulo-mes {
+        min-width: 0;
     }
 }
 
